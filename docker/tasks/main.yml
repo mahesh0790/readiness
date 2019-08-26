@@ -1,0 +1,123 @@
+---
+    - name: Install yum utils
+      yum:
+        name: yum-utils
+        state: latest
+
+    - name: Install device-mapper-persistent-data
+      yum:
+        name: device-mapper-persistent-data
+        state: latest
+
+    - name: Install lvm2
+      yum:
+        name: lvm2
+        state: latest
+
+    - name: Add Docker repo
+      get_url:
+        url: https://download.docker.com/linux/centos/docker-ce.repo
+        dest: /etc/yum.repos.d/docer-ce.repo
+      become: yes
+
+    - name: Enable Docker Edge repo
+      ini_file:
+        dest: /etc/yum.repos.d/docer-ce.repo
+        section: 'docker-ce-edge'
+        option: enabled
+        value: 0
+      become: yes
+
+    - name: Enable Docker Test repo
+      ini_file:
+        dest: /etc/yum.repos.d/docer-ce.repo
+        section: 'docker-ce-test'
+        option: enabled
+        value: 0
+      become: yes
+
+    - name: Install Docker
+      package:
+        name: docker-ce
+        state: latest
+      become: yes
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+      become: yes
+    - name: Re-create a redis container
+      docker_container:
+        name: myredis
+        image: redis
+        command: redis-server
+        state: started
+#        recreate: yes
+        ports:
+                - "6379:6379"
+
+    - name: Run a portainer
+      docker_container:
+        name: myportainer
+        image: portainer/portainer
+        volumes:
+                - /var/run/docker.sock:/var/run/docker.sock
+        state: started
+#        recreate: yes
+        ports:
+                - "9000:9000"
+    - name: Run a docker rabbitmq
+      docker_container:
+        name: rabbitmq
+        image: rabbitmq:management
+        state: started
+        ports:
+                - "5672:5672"
+                - "15672:15672"
+         
+    - name: Run a docker zipkin
+      docker_container:
+        name: zipkin
+        image: openzipkin/zipkin
+        state: started
+        ports:
+                - "9411:9411"
+    - name: create directory
+      file:
+        path: /mongo-data
+        state: directory
+    
+    - name: Run mongo
+      docker_container:
+        name: mongo
+        image: mongo:3.4
+        volumes:
+                 - /mongo-data:/data/db
+        state: started
+        ports: 
+               - "27017:27017"
+    - name: Run postgres
+      docker_container:
+         name: postgress
+         image: postgres
+         env:
+          arg1: "true"
+          arg2: "POSTGRES_PASSWORD=postgres"
+         state: started
+         ports:
+                - "5432:5432"  
+
+    - name: Run zipkin
+      docker_container:
+         name: zipkin
+         image: openzipkin/zipkin
+         env:
+          arg1: "true"
+          arg2: "STORAGE_TYPE=elasticsearch"
+          arg3: "ES_HOSTS=http://54.153.127.119:9200"
+          arg4: "ES_INDEX=zipkin_qa"
+         state: started
+         ports:
+                - "9411:9411"    
